@@ -4,8 +4,16 @@ import {
   ArchaeologyReport,
   FossilArtifact,
   EmotionalSediment,
-  RelicCategory
+  RelicCategory,
+  FOSSIL_QUOTE_MAX_LENGTH
 } from './models';
+import { normalizeText, truncateQuote } from './text-utils';
+
+/** 日期格式化守卫：异常/无效日期统一降级为占位文本，避免 toISOString 抛错 */
+function formatDateStr(d: Date): string {
+  const time = d.getTime();
+  return Number.isNaN(time) ? '未知日期' : d.toISOString().split('T')[0];
+}
 
 const DICT = {
   warmth: ['喜欢', '想你', '爱你', '宝贝', '心疼', '抱抱', '开心', '可爱', '好甜', '晚安', '乖', '幸福'],
@@ -88,9 +96,9 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
       name: `${cat}编号#0${depthLevel}`,
       category: cat,
       depthMeters: depthLevel * 2.4,
-      dateStr: longest.timestamp.toISOString().split('T')[0],
+      dateStr: formatDateStr(longest.timestamp),
       sender: longest.sender,
-      quote: longest.content.slice(0, 120) + (longest.content.length > 120 ? '...' : ''),
+      quote: truncateQuote(longest.content, FOSSIL_QUOTE_MAX_LENGTH),
       archaeologicalNotes: note,
       preservationScore: Math.min(98, 60 + Math.floor(Math.random() * 35))
     });
@@ -103,9 +111,9 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
       name: '原点撞击微陨石化石',
       category: '初识刻石',
       depthMeters: 12.8,
-      dateStr: messages[0].timestamp.toISOString().split('T')[0],
+      dateStr: formatDateStr(messages[0].timestamp),
       sender: messages[0].sender,
-      quote: messages[0].content,
+      quote: truncateQuote(messages[0].content, FOSSIL_QUOTE_MAX_LENGTH),
       archaeologicalNotes: '双方建立双向电磁对话信道的最初始信号记录。',
       preservationScore: 99
     });
@@ -119,11 +127,20 @@ export function analyzeChatStrata(messages: ChatMessage[], siteName = '未知时
     throw new Error('聊天记录为空，无法进行地层切片勘探');
   }
 
+  // 统一统计输入：全部文本先规范化（去 BOM/控制字符、统一换行、NFC 归一），
+  // 情感词匹配、话题提取与化石引文共用同一口径，避免混合编码导致统计偏差
+  const normalized = messages.map(m => ({
+    ...m,
+    sender: normalizeText(m.sender).trim() || '未知者',
+    content: normalizeText(m.content)
+  }));
+
   // Sort chronological (oldest first)
-  const sorted = [...messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  const sorted = [...normalized].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   const startDate = sorted[0].timestamp;
   const endDate = sorted[sorted.length - 1].timestamp;
-  const totalDays = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const spanMs = endDate.getTime() - startDate.getTime();
+  const totalDays = Number.isFinite(spanMs) ? Math.max(1, Math.ceil(spanMs / (1000 * 60 * 60 * 24))) : 1;
 
   // Slice into 5 geological strata (from newest = Layer 1 down to oldest = Layer 5)
   const layerCount = 5;
@@ -165,8 +182,8 @@ export function analyzeChatStrata(messages: ChatMessage[], siteName = '未知时
       geologicalCode: preset.geologicalCode,
       lithology: preset.lithology,
       timeRange: {
-        start: layerMsgs[0].timestamp.toISOString().split('T')[0],
-        end: layerMsgs[layerMsgs.length - 1].timestamp.toISOString().split('T')[0]
+        start: formatDateStr(layerMsgs[0].timestamp),
+        end: formatDateStr(layerMsgs[layerMsgs.length - 1].timestamp)
       },
       messageCount: layerMsgs.length,
       temperatureCelsius: temperature,

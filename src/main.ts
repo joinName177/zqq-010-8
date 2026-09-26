@@ -1,5 +1,6 @@
 import './ui/styles.css';
 import { UniversalChatParserAdapter } from './adapters/chat-parser.adapter';
+import { decodeChatFile } from './adapters/file-decoder.adapter';
 import { SampleSitesAdapter } from './adapters/sample-data.adapter';
 import { ArchaeologyEngineAdapter } from './adapters/archaeology-engine.adapter';
 import { renderApp } from './ui/app';
@@ -51,7 +52,8 @@ function update() {
       },
       onUploadFile: async (file: File) => {
         try {
-          const text = await file.text();
+          // 统一解码（BOM 探测 + UTF-8/GB18030 回退），避免混合编码文件乱码
+          const text = await decodeChatFile(file);
           const msgs = await parser.parse(text);
           if (msgs.length === 0) {
             alert('未能从该文件中解析出有效对话记录，请检查文件格式。');

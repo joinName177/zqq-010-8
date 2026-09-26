@@ -1,9 +1,17 @@
 import { ChatMessage } from '../core/models';
 import { ChatParserPort } from '../ports/chat-parser.port';
+import { normalizeText, countChars } from '../core/text-utils';
+
+/** 日期解析守卫：无效日期回退到上一条有效时间，避免异常数据进入统计 */
+function toSafeDate(raw: string, fallback: Date): Date {
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? new Date(fallback) : d;
+}
 
 export class UniversalChatParserAdapter implements ChatParserPort {
   async parse(rawText: string): Promise<ChatMessage[]> {
-    const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    // 统一编码与换行：去 BOM/控制字符、\r\n 与 \r 归一为 \n、NFC 归一
+    const lines = normalizeText(rawText).split('\n').map(l => l.trim()).filter(Boolean);
     const messages: ChatMessage[] = [];
 
     // Regex patterns for WeChat, QQ, SMS
@@ -28,7 +36,7 @@ export class UniversalChatParserAdapter implements ChatParserPort {
             sender: currentSender,
             content: text,
             sentimentScore: 0,
-            wordCount: text.length
+            wordCount: countChars(text)
           });
         }
         currentContent = [];
@@ -40,7 +48,7 @@ export class UniversalChatParserAdapter implements ChatParserPort {
       const bMatch = line.match(bracketPattern);
       if (bMatch) {
         flush();
-        currentTimestamp = new Date(bMatch[1]);
+        currentTimestamp = toSafeDate(bMatch[1], currentTimestamp);
         currentSender = bMatch[2].trim();
         currentContent.push(bMatch[3].trim());
         continue;
@@ -50,7 +58,7 @@ export class UniversalChatParserAdapter implements ChatParserPort {
       const qMatch = line.match(qqPattern);
       if (qMatch) {
         flush();
-        currentTimestamp = new Date(qMatch[1]);
+        currentTimestamp = toSafeDate(qMatch[1], currentTimestamp);
         currentSender = qMatch[2].trim();
         continue;
       }
@@ -59,7 +67,7 @@ export class UniversalChatParserAdapter implements ChatParserPort {
       const wMatch = line.match(wechatPattern);
       if (wMatch) {
         flush();
-        currentTimestamp = new Date(wMatch[1]);
+        currentTimestamp = toSafeDate(wMatch[1], currentTimestamp);
         currentSender = wMatch[2].trim();
         continue;
       }
@@ -68,15 +76,17 @@ export class UniversalChatParserAdapter implements ChatParserPort {
       if (line.startsWith('{') && line.endsWith('}')) {
         try {
           const parsed = JSON.parse(line);
-          if (parsed.content || parsed.message || parsed.text) {
+          const jsonContent = parsed.content ?? parsed.message ?? parsed.text;
+          if (jsonContent !== undefined && jsonContent !== null && jsonContent !== '') {
             flush();
+            const content = normalizeText(String(jsonContent));
             messages.push({
               id: `msg-${messages.length + 1}`,
-              timestamp: parsed.timestamp ? new Date(parsed.timestamp) : new Date(),
-              sender: parsed.sender || parsed.user || '未知者',
-              content: parsed.content || parsed.message || parsed.text,
+              timestamp: parsed.timestamp ? toSafeDate(String(parsed.timestamp), currentTimestamp) : new Date(currentTimestamp),
+              sender: normalizeText(String(parsed.sender ?? parsed.user ?? '未知者')).trim() || '未知者',
+              content,
               sentimentScore: 0,
-              wordCount: (parsed.content || '').length
+              wordCount: countChars(content)
             });
             continue;
           }
@@ -104,7 +114,7 @@ export class UniversalChatParserAdapter implements ChatParserPort {
           sender: sender.trim(),
           content: content.trim(),
           sentimentScore: 0,
-          wordCount: content.length
+          wordCount: countChars(content)
         });
       });
     }

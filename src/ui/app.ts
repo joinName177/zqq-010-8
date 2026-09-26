@@ -23,6 +23,9 @@ export function renderApp(
   const escapeHtml = (str: string) =>
     str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 
+  // 多行文本统一转义：先转义特殊字符，再将换行转换为 <br>，保留多行结构
+  const escapeMultiline = (str: string) => escapeHtml(str).replace(/\n/g, '<br>');
+
   container.innerHTML = `
     <div class="archaeo-app">
       <header class="site-header">
@@ -47,7 +50,7 @@ export function renderApp(
             ${sampleSites
               .map(
                 s => `
-              <button class="btn-preset ${s.id === selectedSiteId ? 'active' : ''}" data-site="${s.id}">
+              <button class="btn-preset ${s.id === selectedSiteId ? 'active' : ''}" data-site="${escapeHtml(s.id)}">
                 <strong>${escapeHtml(s.name)}</strong>
                 <div style="font-size:11px;color:var(--text-muted);">${escapeHtml(s.eraSpan)}</div>
               </button>
@@ -80,16 +83,16 @@ export function renderApp(
             ${report.strata
               .map(
                 (layer, idx) => `
-              <div class="strata-card ${idx === selectedLayerIndex ? 'selected' : ''}" 
-                   data-layer="${idx}" 
-                   style="--layer-color: ${layer.colorHex}">
+              <div class="strata-card ${idx === selectedLayerIndex ? 'selected' : ''}"
+                   data-layer="${idx}"
+                   style="--layer-color: ${escapeHtml(layer.colorHex)}">
                 <div class="strata-card-header">
-                  <span class="layer-tag">Layer 0${layer.depthLevel} · ${layer.geologicalCode}</span>
+                  <span class="layer-tag">Layer 0${layer.depthLevel} · ${escapeHtml(layer.geologicalCode)}</span>
                   <span class="layer-depth">深度 -${(layer.depthLevel * 2.4).toFixed(1)}m</span>
                 </div>
                 <div class="layer-name">${escapeHtml(layer.epochName)}</div>
                 <div class="layer-meta">
-                  <span>${layer.timeRange.start} ~ ${layer.timeRange.end}</span>
+                  <span>${escapeHtml(layer.timeRange.start)} ~ ${escapeHtml(layer.timeRange.end)}</span>
                   <span class="temp-badge">${layer.temperatureCelsius}°C</span>
                 </div>
               </div>
@@ -177,10 +180,10 @@ export function renderApp(
                     <div class="fossil-item">
                       <div class="fossil-top">
                         <span class="fossil-badge">${escapeHtml(f.category)}</span>
-                        <span style="font-family:var(--font-mono);color:var(--text-muted);">${f.dateStr} · 发掘深度 -${f.depthMeters.toFixed(1)}m</span>
+                        <span style="font-family:var(--font-mono);color:var(--text-muted);">${escapeHtml(f.dateStr)} · 发掘深度 -${f.depthMeters.toFixed(1)}m</span>
                       </div>
-                      <div class="fossil-quote">“${escapeHtml(f.quote)}”</div>
-                      <div class="fossil-notes">🔬 考古学鉴定：${escapeHtml(f.archaeologicalNotes)} (保存完好度: ${f.preservationScore}%)</div>
+                      <div class="fossil-quote">“${escapeMultiline(f.quote)}”</div>
+                      <div class="fossil-notes">🔬 考古学鉴定：${escapeMultiline(f.archaeologicalNotes)} (保存完好度: ${f.preservationScore}%)</div>
                     </div>
                   `
                       )
@@ -202,7 +205,7 @@ export function renderApp(
             <div class="report-header">
               <h2>《${escapeHtml(report.siteName)}》关系考古发掘总报告</h2>
               <div class="report-sub">
-                ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(report.siteCode)} · 发掘时间：${report.excavatedAt}
+                ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(report.siteCode)} · 发掘时间：${escapeHtml(report.excavatedAt)}
               </div>
             </div>
 
@@ -229,12 +232,12 @@ export function renderApp(
 
             <div class="report-section">
               <h4>地质剖面综述：</h4>
-              <p>${escapeHtml(report.archaeologicalSummary)}</p>
+              <p>${escapeMultiline(report.archaeologicalSummary)}</p>
             </div>
 
             <div class="report-section">
               <h4>馆藏专家终审评定：</h4>
-              <p>“${escapeHtml(report.curatorAssessment)}”</p>
+              <p>“${escapeMultiline(report.curatorAssessment)}”</p>
             </div>
 
             <div class="report-actions">

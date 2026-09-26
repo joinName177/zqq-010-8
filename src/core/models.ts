@@ -7,6 +7,9 @@ export interface ChatMessage {
   wordCount: number;
 }
 
+/** 化石引文最大展示长度（按 Unicode 码点计），超出统一截断并追加省略号 */
+export const FOSSIL_QUOTE_MAX_LENGTH = 120;
+
 export type RelicCategory = '初识刻石' | '誓约泥版' | '交锋裂痕' | '深夜篝火' | '寂静化石';
 
 export interface FossilArtifact {

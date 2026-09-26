@@ -452,6 +452,9 @@ body {
   border-left: 2px solid var(--ochre);
   padding-left: 10px;
   margin: 8px 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .fossil-notes {
@@ -571,3 +574,15 @@ body {
 .btn-secondary:hover {
   border-color: var(--earth-accent);
 }
+
+/* 特殊字符 / 超长无界字符串（URL、长数字、混合编码）防撑破 */
+.modal-content,
+.detail-panel,
+.report-section p,
+.layer-name,
+.topic-chip,
+.fossil-item {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+

@@ -7,6 +7,7 @@ import { ArchaeologyReport } from './core/models';
 import { calculateReportMetrics } from './core/report-metrics';
 import { reportTelemetry } from './adapters/report-telemetry';
 import { buildBugSurface } from './adapters/quality/bugSurface';
+import { TEXT_LIMITS } from './core/text-safety';
 
 const parser = new UniversalChatParserAdapter();
 const sampleAdapter = new SampleSitesAdapter();
@@ -51,11 +52,19 @@ function update() {
       },
       onUploadFile: async (file: File) => {
         try {
-          const text = await file.text();
+          if (file.size > TEXT_LIMITS.maxFileBytes) {
+            alert(`文件超过容量上限（${Math.round(TEXT_LIMITS.maxFileBytes / 1024 / 1024)} MiB），请截取后再导入。`);
+            return;
+          }
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const text = parser.decodeBytes(bytes);
           const msgs = await parser.parse(text);
           if (msgs.length === 0) {
             alert('未能从该文件中解析出有效对话记录，请检查文件格式。');
             return;
+          }
+          if (msgs.length >= TEXT_LIMITS.maxMessages) {
+            alert(`消息量较大，已按容量上限保留最早的 ${TEXT_LIMITS.maxMessages} 条记录。`);
           }
           selectedSiteId = 'custom-upload';
           currentReport = engine.excavateSite(msgs, `自定义导入档案 · ${file.name}`);

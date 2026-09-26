@@ -6,6 +6,7 @@ import {
   EmotionalSediment,
   RelicCategory
 } from './models';
+import { TEXT_LIMITS, clipText } from './text-safety';
 
 const DICT = {
   warmth: ['喜欢', '想你', '爱你', '宝贝', '心疼', '抱抱', '开心', '可爱', '好甜', '晚安', '乖', '幸福'],
@@ -65,11 +66,11 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
   const artifacts: FossilArtifact[] = [];
   if (messages.length === 0) return artifacts;
 
-  // Search for emotional extremes
-  const sortedByLength = [...messages].sort((a, b) => b.content.length - a.content.length);
+  // Search for emotional extremes —— 排序口径与消息字数统计保持一致
+  const sortedByLength = [...messages].sort((a, b) => b.wordCount - a.wordCount);
   const longest = sortedByLength[0];
 
-  if (longest && longest.content.length > 15) {
+  if (longest && longest.wordCount > 15) {
     let cat: RelicCategory = '深夜篝火';
     let note = '该层位出土长篇幅连贯文本，反映出深度情感剖白与观念共建。';
     if (longest.content.includes('对不起') || longest.content.includes('吵')) {
@@ -90,7 +91,7 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
       depthMeters: depthLevel * 2.4,
       dateStr: longest.timestamp.toISOString().split('T')[0],
       sender: longest.sender,
-      quote: longest.content.slice(0, 120) + (longest.content.length > 120 ? '...' : ''),
+      quote: clipText(longest.content, TEXT_LIMITS.maxQuoteChars),
       archaeologicalNotes: note,
       preservationScore: Math.min(98, 60 + Math.floor(Math.random() * 35))
     });
@@ -105,7 +106,7 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
       depthMeters: 12.8,
       dateStr: messages[0].timestamp.toISOString().split('T')[0],
       sender: messages[0].sender,
-      quote: messages[0].content,
+      quote: clipText(messages[0].content, TEXT_LIMITS.maxQuoteChars),
       archaeologicalNotes: '双方建立双向电磁对话信道的最初始信号记录。',
       preservationScore: 99
     });
@@ -119,8 +120,13 @@ export function analyzeChatStrata(messages: ChatMessage[], siteName = '未知时
     throw new Error('聊天记录为空，无法进行地层切片勘探');
   }
 
+  // 核心层容量保护：保留最早地层记录，丢弃超出上限的最新尾部
+  const bounded = messages.length > TEXT_LIMITS.maxMessages
+    ? messages.slice(0, TEXT_LIMITS.maxMessages)
+    : messages;
+
   // Sort chronological (oldest first)
-  const sorted = [...messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  const sorted = [...bounded].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   const startDate = sorted[0].timestamp;
   const endDate = sorted[sorted.length - 1].timestamp;
   const totalDays = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));

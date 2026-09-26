@@ -1,5 +1,6 @@
 import { ArchaeologyReport, StrataLayer } from '../core/models';
 import { SampleSite } from '../adapters/sample-data.adapter';
+import { escapeHtml, escapeHtmlMultiline } from '../core/text-safety';
 
 export interface UIEventHandlers {
   onSelectPreset: (siteId: string) => void;
@@ -19,9 +20,6 @@ export function renderApp(
   onCloseReport: () => void
 ) {
   const currentLayer = report.strata[selectedLayerIndex] || report.strata[0];
-
-  const escapeHtml = (str: string) =>
-    str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 
   container.innerHTML = `
     <div class="archaeo-app">
@@ -179,7 +177,7 @@ export function renderApp(
                         <span class="fossil-badge">${escapeHtml(f.category)}</span>
                         <span style="font-family:var(--font-mono);color:var(--text-muted);">${f.dateStr} · 发掘深度 -${f.depthMeters.toFixed(1)}m</span>
                       </div>
-                      <div class="fossil-quote">“${escapeHtml(f.quote)}”</div>
+                      <div class="fossil-quote">“${escapeHtmlMultiline(f.quote)}”</div>
                       <div class="fossil-notes">🔬 考古学鉴定：${escapeHtml(f.archaeologicalNotes)} (保存完好度: ${f.preservationScore}%)</div>
                     </div>
                   `
@@ -202,7 +200,7 @@ export function renderApp(
             <div class="report-header">
               <h2>《${escapeHtml(report.siteName)}》关系考古发掘总报告</h2>
               <div class="report-sub">
-                ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(report.siteCode)} · 发掘时间：${report.excavatedAt}
+                ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(report.siteCode)} · 发掘时间：${escapeHtml(report.excavatedAt)}
               </div>
             </div>
 
